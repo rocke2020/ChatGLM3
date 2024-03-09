@@ -28,9 +28,11 @@ Note:
 import os
 import time
 import tiktoken
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+
 import torch
 import uvicorn
-
+import dotenv
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -46,13 +48,13 @@ from sse_starlette.sse import EventSourceResponse
 
 # Set up limit request time
 EventSourceResponse.DEFAULT_PING_INTERVAL = 1000
-
+dotenv.load_dotenv()
 # set LLM path
 MODEL_PATH = os.environ.get('MODEL_PATH', 'THUDM/chatglm3-6b')
 TOKENIZER_PATH = os.environ.get("TOKENIZER_PATH", MODEL_PATH)
 
 # set Embedding Model path
-EMBEDDING_PATH = os.environ.get('EMBEDDING_PATH', 'BAAI/bge-large-zh-v1.5')
+EMBEDDING_PATH = os.environ.get('EMBEDDING_PATH', 'BAAI/bge-m3')
 
 
 @asynccontextmanager
@@ -174,6 +176,8 @@ async def health() -> Response:
 
 @app.post("/v1/embeddings", response_model=EmbeddingResponse)
 async def get_embeddings(request: EmbeddingRequest):
+    # TODO low efficient to encode text one by one. The encoder() auto batch interence. 
+    # But no difference for chat cases."""
     embeddings = [embedding_model.encode(text) for text in request.input]
     embeddings = [embedding.tolist() for embedding in embeddings]
 
