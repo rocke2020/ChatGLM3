@@ -240,7 +240,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
     logger.debug(f"==== request ====\n{gen_params}")
 
     if request.stream:
-
+        logger.info(f'{request.model = }')
         # Use the stream mode to read the first few characters, if it is not a function call, direct stram output
         predict_stream_generator = predict_stream(request.model, gen_params)
         output = next(predict_stream_generator)
