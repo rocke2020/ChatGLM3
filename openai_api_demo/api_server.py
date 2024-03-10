@@ -45,6 +45,9 @@ from utils import process_response, generate_chatglm3, generate_stream_chatglm3
 from sentence_transformers import SentenceTransformer
 
 from sse_starlette.sse import EventSourceResponse
+from icecream import ic
+ic.configureOutput(includeContext=True, argToStringFunction=str)
+ic.lineWrapWidth = 120
 
 # Set up limit request time
 EventSourceResponse.DEFAULT_PING_INTERVAL = 1000
@@ -240,7 +243,6 @@ async def create_chat_completion(request: ChatCompletionRequest):
     logger.debug(f"==== request ====\n{gen_params}")
 
     if request.stream:
-        logger.info(f'{request.model = }')
         # Use the stream mode to read the first few characters, if it is not a function call, direct stram output
         predict_stream_generator = predict_stream(request.model, gen_params)
         output = next(predict_stream_generator)

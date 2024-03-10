@@ -4,6 +4,9 @@ import torch
 from transformers import PreTrainedModel, PreTrainedTokenizer
 from transformers.generation.logits_process import LogitsProcessor
 from typing import Union, Tuple
+from icecream import ic
+ic.configureOutput(includeContext=True, argToStringFunction=str)
+ic.lineWrapWidth = 120
 
 
 class InvalidScoreLogitsProcessor(LogitsProcessor):
@@ -52,6 +55,7 @@ def generate_stream_chatglm3(model: PreTrainedModel, tokenizer: PreTrainedTokeni
     top_p = float(params.get("top_p", 1.0))
     max_new_tokens = int(params.get("max_tokens", 256))
     echo = params.get("echo", True)
+    ic(messages, tools)
     messages = process_chatglm_messages(messages, tools=tools)
     query, role = messages[-1]["content"], messages[-1]["role"]
 
@@ -133,6 +137,7 @@ def process_chatglm_messages(messages, tools=None):
 
     for m in _messages:
         role, content, func_call = m.role, m.content, m.function_call
+        ic(role, content, func_call)
         if role == "function":
             messages.append(
                 {
