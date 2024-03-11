@@ -91,9 +91,10 @@ def generate_stream_chatglm3(model: PreTrainedModel, tokenizer: PreTrainedTokeni
             output_ids = total_ids[input_echo_len:-1]
 
         response = tokenizer.decode(output_ids)
+        ic(response)
         if response and response[-1] != "�":
             response, stop_found = apply_stopping_strings(response, ["<|observation|>"])
-
+            ic(response, stop_found)
             yield {
                 "text": response,
                 "usage": {

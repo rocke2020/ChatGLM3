@@ -9,11 +9,14 @@ It includes functions to:
 Each function demonstrates a different aspect of the API's capabilities, showcasing how to make requests
 and handle responses.
 """
-
+import argparse
 from openai import OpenAI
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--key", type=str)
+args = parser.parse_args()
 base_url = "http://127.0.0.1:8000/v1/"
-client = OpenAI(api_key="EMPTY", base_url=base_url)
+client = OpenAI(api_key=args.key, base_url=base_url)
 
 
 def function_chat():
@@ -93,7 +96,4 @@ def embedding():
 
 
 if __name__ == "__main__":
-    simple_chat(use_stream=False)
-    simple_chat(use_stream=True)
-    embedding()
     function_chat()
