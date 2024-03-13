@@ -28,7 +28,7 @@ Note:
 import os
 import time
 import tiktoken
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import torch
 import uvicorn

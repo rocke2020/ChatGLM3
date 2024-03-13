@@ -57,6 +57,7 @@ def generate_stream_chatglm3(model: PreTrainedModel, tokenizer: PreTrainedTokeni
     echo = params.get("echo", True)
     ic(messages, tools)
     messages = process_chatglm_messages(messages, tools=tools)
+    ic(messages)
     query, role = messages[-1]["content"], messages[-1]["role"]
 
     inputs = tokenizer.build_chat_input(query, history=messages[:-1], role=role)
@@ -82,6 +83,7 @@ def generate_stream_chatglm3(model: PreTrainedModel, tokenizer: PreTrainedTokeni
         gen_kwargs["temperature"] = temperature
 
     total_len = 0
+    verbose=0
     for total_ids in model.stream_generate(**inputs, eos_token_id=eos_token_id, **gen_kwargs):
         total_ids = total_ids.tolist()[0]
         total_len = len(total_ids)
@@ -91,10 +93,12 @@ def generate_stream_chatglm3(model: PreTrainedModel, tokenizer: PreTrainedTokeni
             output_ids = total_ids[input_echo_len:-1]
 
         response = tokenizer.decode(output_ids)
-        ic(response)
+        if verbose:
+            ic(response)
         if response and response[-1] != "�":
             response, stop_found = apply_stopping_strings(response, ["<|observation|>"])
-            ic(response, stop_found)
+            if verbose:
+                ic(response, stop_found)
             yield {
                 "text": response,
                 "usage": {

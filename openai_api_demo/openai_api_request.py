@@ -19,7 +19,7 @@ base_url = "http://127.0.0.1:8000/v1/"
 client = OpenAI(api_key=args.key, base_url=base_url)
 
 
-def function_chat():
+def function_chat(stream = True):
     messages = [{"role": "user", "content": "What's the weather like in San Francisco, Tokyo, and Paris?"}]
     tools = [
         {
@@ -41,16 +41,20 @@ def function_chat():
             },
         }
     ]
-
+    
     response = client.chat.completions.create(
         model="chatglm3-6b",
         messages=messages,
         tools=tools,
         tool_choice="auto",
+        stream=stream,
     )
     if response:
-        content = response.choices[0].message.content
-        print(content)
+        if not stream:
+            content = response.choices[0].message.content
+            print(content)
+        else:
+            pass
     else:
         print("Error:", response.status_code)
 
@@ -96,4 +100,4 @@ def embedding():
 
 
 if __name__ == "__main__":
-    function_chat()
+    function_chat(stream = True)
