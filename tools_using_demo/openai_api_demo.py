@@ -1,16 +1,17 @@
 import json
-
+import argparse
 from openai import OpenAI
 from colorama import init, Fore
 from loguru import logger
 
 from tool_register import get_tools, dispatch_tool
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--key", type=str)
+args = parser.parse_args()
+
 init(autoreset=True)
-client = OpenAI(
-  base_url="http://127.0.0.1:8000/v1",
-  api_key = "xxx"
-)
+client = OpenAI(base_url="http://127.0.0.1:8000/v1", api_key=args.key)
 
 tools = get_tools()
 
@@ -84,10 +85,11 @@ def run_conversation(query: str, stream=False, tools=None, max_retry=5):
 
 
 if __name__ == "__main__":
-    query = "你是谁"
-    run_conversation(query, stream=True)
+    # query = "你是谁? 用英文回答"
+    # query = "who are you?"
+    # run_conversation(query, stream=True)
 
-    logger.info("\n=========== next conversation ===========")
+    # logger.info("\n=========== next conversation ===========")
 
-    query = "帮我查询北京的天气怎么样"
+    query = "帮我查询北京的天气怎么样，用英文回答"
     run_conversation(query, tools=tools, stream=True)

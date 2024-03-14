@@ -179,7 +179,7 @@ async def health() -> Response:
 
 @app.post("/v1/embeddings", response_model=EmbeddingResponse)
 async def get_embeddings(request: EmbeddingRequest):
-    # TODO low efficient to encode text one by one. The encoder() auto batch interence. 
+    # TODO dqc, low efficient to encode text one by one. The encoder() auto batch interence. 
     # But no difference for chat cases."""
     embeddings = [embedding_model.encode(text) for text in request.input]
     embeddings = [embedding.tolist() for embedding in embeddings]
@@ -296,12 +296,12 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
     # Here is the handling of stream = False
     response = generate_chatglm3(model, tokenizer, gen_params)
-
+    # ic(response)
     # Remove the first newline character
     if response["text"].startswith("\n"):
         response["text"] = response["text"][1:]
     response["text"] = response["text"].strip()
-
+    # ic(response["text"])
     usage = UsageInfo()
     function_call, finish_reason = None, "stop"
     if request.tools:

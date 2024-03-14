@@ -22,6 +22,7 @@ class InvalidScoreLogitsProcessor(LogitsProcessor):
 def process_response(output: str, use_tool: bool = False) -> Union[str, dict]:
     content = ""
     for response in output.split("<|assistant|>"):
+        ic(response)
         metadata, content = response.split("\n", maxsplit=1)
         if not metadata.strip():
             content = content.strip()
@@ -29,7 +30,7 @@ def process_response(output: str, use_tool: bool = False) -> Union[str, dict]:
         else:
             if use_tool:
                 content = "\n".join(content.split("\n")[1:-1])
-
+                ic(content)
                 def tool_call(**kwargs):
                     return kwargs
 
