@@ -10,7 +10,7 @@ from typing import get_origin, Annotated
 from loguru import logger
 
 _TOOL_HOOKS = {}
-_TOOL_DESCRIPTIONS = {}
+_TOOL_DESCRIPTIONS = []
 
 
 def register_tool(func: callable):
@@ -46,11 +46,14 @@ def register_tool(func: callable):
         "description": tool_description,
         "parameters": tool_params
     }
-
+    tool_info = {
+         "type": "function",
+         'function': tool_def
+    }
     # print("[registered tool] " + pformat(tool_def, sort_dicts=False))
     logger.info(f'registered tool {tool_name}')
     _TOOL_HOOKS[tool_name] = func
-    _TOOL_DESCRIPTIONS[tool_name] = tool_def
+    _TOOL_DESCRIPTIONS.append(tool_info)
 
     return func
 

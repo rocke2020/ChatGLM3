@@ -1,10 +1,10 @@
-import json
 import argparse
-from openai import OpenAI
-from colorama import init, Fore
-from loguru import logger
+import json
 
-from tool_register import get_tools, dispatch_tool
+from colorama import Fore, init
+from loguru import logger
+from openai import OpenAI
+from tool_register import dispatch_tool, get_tools
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--key", type=str)
@@ -20,9 +20,9 @@ def run_conversation(query: str, stream=False, tools=None, max_retry=5):
     params = dict(model="chatglm3", messages=[{"role": "user", "content": query}], stream=stream)
     if tools:
         params["tools"] = tools
-    logger.info(f'{tools.keys()} {type(tools)}')
-    for k, v in tools.items():
-        logger.info(f'{k = }\n{v = }')
+    # logger.info(f'{tools.keys()} {type(tools)}')
+    # for k, v in tools.items():
+    #     logger.info(f'{k = }\n{v = }')
     response = client.chat.completions.create(**params)
 
     for _ in range(max_retry):
@@ -62,13 +62,12 @@ def run_conversation(query: str, stream=False, tools=None, max_retry=5):
                     print("\n")
 
                     function_call = chunk.choices[0].delta.function_call
-                    logger.info(f"Function Call Response: {function_call.model_dump()}")
-                    logger.info(f'{type(function_call) = } ')
-
                     function_args = json.loads(function_call.arguments)
-                    logger.info(f'{function_call.name = }, {function_args = }')
                     tool_response = dispatch_tool(function_call.name, function_args)
-                    logger.info(f"Tool Call Response: {tool_response}")
+                    logger.info(
+                        f"{function_call.name = }, {function_args = }, "
+                        f"Tool Call Response: {tool_response}"
+                    )
 
                     params["messages"].append(
                         {
@@ -96,5 +95,5 @@ if __name__ == "__main__":
 
     # logger.info("\n=========== next conversation ===========")
 
-    query = "帮我查询北京的天气怎么样，用英文回答"
+    query = "帮我查询上海的天气怎么样, 用英文回答"
     run_conversation(query, tools=tools, stream=True)
