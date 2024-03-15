@@ -4,9 +4,7 @@ import torch
 from transformers import PreTrainedModel, PreTrainedTokenizer
 from transformers.generation.logits_process import LogitsProcessor
 from typing import Union, Tuple
-from icecream import ic
-ic.configureOutput(includeContext=True, argToStringFunction=str)
-ic.lineWrapWidth = 120
+from loguru import logger
 
 
 class InvalidScoreLogitsProcessor(LogitsProcessor):
@@ -22,7 +20,7 @@ class InvalidScoreLogitsProcessor(LogitsProcessor):
 def process_response(output: str, use_tool: bool = False) -> Union[str, dict]:
     content = ""
     for response in output.split("<|assistant|>"):
-        ic(response)
+        logger.info(f'{response = }')
         metadata, content = response.split("\n", maxsplit=1)
         if not metadata.strip():
             content = content.strip()
@@ -30,11 +28,12 @@ def process_response(output: str, use_tool: bool = False) -> Union[str, dict]:
         else:
             if use_tool:
                 content = "\n".join(content.split("\n")[1:-1])
-                ic(content)
+                logger.info(f'{content = }')
                 def tool_call(**kwargs):
                     return kwargs
 
                 parameters = eval(content)
+                logger.info(f'{parameters = }')
                 content = {
                     "name": metadata.strip(),
                     "arguments": json.dumps(parameters, ensure_ascii=False)
@@ -56,9 +55,9 @@ def generate_stream_chatglm3(model: PreTrainedModel, tokenizer: PreTrainedTokeni
     top_p = float(params.get("top_p", 1.0))
     max_new_tokens = int(params.get("max_tokens", 256))
     echo = params.get("echo", True)
-    ic(messages, tools)
+    logger.info(f'{messages = } {tools = }')
     messages = process_chatglm_messages(messages, tools=tools)
-    ic(messages)
+    logger.info(f'{messages = }')
     query, role = messages[-1]["content"], messages[-1]["role"]
 
     inputs = tokenizer.build_chat_input(query, history=messages[:-1], role=role)
@@ -84,7 +83,7 @@ def generate_stream_chatglm3(model: PreTrainedModel, tokenizer: PreTrainedTokeni
         gen_kwargs["temperature"] = temperature
 
     total_len = 0
-    verbose=0
+    verbose=1
     for total_ids in model.stream_generate(**inputs, eos_token_id=eos_token_id, **gen_kwargs):
         total_ids = total_ids.tolist()[0]
         total_len = len(total_ids)
@@ -94,12 +93,10 @@ def generate_stream_chatglm3(model: PreTrainedModel, tokenizer: PreTrainedTokeni
             output_ids = total_ids[input_echo_len:-1]
 
         response = tokenizer.decode(output_ids)
-        if verbose:
-            ic(response)
         if response and response[-1] != "�":
             response, stop_found = apply_stopping_strings(response, ["<|observation|>"])
             if verbose:
-                ic(response, stop_found)
+                logger.info(f'{response = } {stop_found = }')
             yield {
                 "text": response,
                 "usage": {
@@ -143,7 +140,7 @@ def process_chatglm_messages(messages, tools=None):
 
     for m in _messages:
         role, content, func_call = m.role, m.content, m.function_call
-        ic(role, content, func_call)
+        logger.info(f'{role = } {content = } {func_call = }')
         if role == "function":
             messages.append(
                 {

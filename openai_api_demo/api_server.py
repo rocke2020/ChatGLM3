@@ -45,9 +45,7 @@ from utils import process_response, generate_chatglm3, generate_stream_chatglm3
 from sentence_transformers import SentenceTransformer
 
 from sse_starlette.sse import EventSourceResponse
-from icecream import ic
-ic.configureOutput(includeContext=True, argToStringFunction=str)
-ic.lineWrapWidth = 120
+
 
 # Set up limit request time
 EventSourceResponse.DEFAULT_PING_INTERVAL = 1000
@@ -179,7 +177,7 @@ async def health() -> Response:
 
 @app.post("/v1/embeddings", response_model=EmbeddingResponse)
 async def get_embeddings(request: EmbeddingRequest):
-    # TODO dqc, low efficient to encode text one by one. The encoder() auto batch interence. 
+    # TODO dqc, low efficient to encode text one by one. The encoder() auto batch interence.
     # But no difference for chat cases."""
     embeddings = [embedding_model.encode(text) for text in request.input]
     embeddings = [embedding.tolist() for embedding in embeddings]
@@ -241,16 +239,17 @@ async def create_chat_completion(request: ChatCompletionRequest):
         tools=request.tools,
     )
     logger.debug(f"==== request ====\n{gen_params}")
-
+    request.stream = False
     if request.stream:
         # Use the stream mode to read the first few characters, if it is not a function call, direct stram output
         predict_stream_generator = predict_stream(request.model, gen_params)
         output = next(predict_stream_generator)
+        logger.info(f"{output = }")
         if not contains_custom_function(output):
             return EventSourceResponse(predict_stream_generator, media_type="text/event-stream")
 
         # Obtain the result directly at one time and determine whether tools needs to be called.
-        logger.debug(f"First result output：\n{output}")
+        logger.info(f"First result output：\n{output}")
 
         function_call = None
         if output and request.tools:
@@ -423,20 +422,26 @@ def predict_stream(model_id, gen_params):
     has_send_first_chunk = False
     for new_response in generate_stream_chatglm3(model, tokenizer, gen_params):
         decoded_unicode = new_response["text"]
+
         delta_text = decoded_unicode[len(output):]
+        finish_reason = new_response["finish_reason"]
+        logger.info(f"{decoded_unicode = } {delta_text = } {finish_reason = }")
         output = decoded_unicode
 
+        if is_function_call or finish_reason == "function_call":
+            is_function_call = True
+            continue
         # When it is not a function call and the character length is> 7,
         # try to judge whether it is a function call according to the special function prefix
-        if not is_function_call and len(output) > 7:
-
+        # if not is_function_call and len(output) > 7:
+        else:
             # Determine whether a function is called
-            is_function_call = contains_custom_function(output)
-            if is_function_call:
-                continue
+            # is_function_call = contains_custom_function(output)
+            # if is_function_call:
+            #     continue
 
             # Non-function call, direct stream output
-            finish_reason = new_response["finish_reason"]
+            # finish_reason = new_response["finish_reason"]
 
             # Send an empty string first to avoid truncation by subsequent next() operations.
             if not has_send_first_chunk:
@@ -480,6 +485,7 @@ def predict_stream(model_id, gen_params):
             )
             yield "{}".format(chunk.model_dump_json(exclude_unset=True))
 
+    logger.info(f'{is_function_call = }')
     if is_function_call:
         yield output
     else:
@@ -524,6 +530,24 @@ def contains_custom_function(value: str) -> bool:
     :return:
     """
     return value and 'get_' in value
+
+
+def contains_custom_function_langchain(value: str) -> bool:
+    """
+    Determine whether 'function_call' according to a special function prefix.
+
+    For example, the functions response from langchain "tavily_search"
+    tavily_search_results_json
+    ```python
+    tool_call(query='LangChain')
+    ```
+
+    [Note] This is not a rigorous judgment method, only for reference.
+
+    :param value:
+    :return:
+    """
+    return value and "get_" in value
 
 
 if __name__ == "__main__":
