@@ -7,6 +7,7 @@ from copy import deepcopy
 from pprint import pformat
 from types import GenericAlias
 from typing import get_origin, Annotated
+from loguru import logger
 
 _TOOL_HOOKS = {}
 _TOOL_DESCRIPTIONS = {}
@@ -21,11 +22,14 @@ def register_tool(func: callable):
         annotation = param.annotation
         if annotation is inspect.Parameter.empty:
             raise TypeError(f"Parameter `{name}` missing type annotation")
+        # logger.info(f'{name = }')
         if get_origin(annotation) != Annotated:
             raise TypeError(f"Annotation type for `{name}` must be typing.Annotated")
 
         typ, (description, required) = annotation.__origin__, annotation.__metadata__
+        # logger.info(f'{typ = }, {type(typ) = }')
         typ: str = str(typ) if isinstance(typ, GenericAlias) else typ.__name__
+        # logger.info(f'{typ = }')
         if not isinstance(description, str):
             raise TypeError(f"Description for `{name}` must be a string")
         if not isinstance(required, bool):
@@ -43,7 +47,8 @@ def register_tool(func: callable):
         "parameters": tool_params
     }
 
-    print("[registered tool] " + pformat(tool_def))
+    # print("[registered tool] " + pformat(tool_def, sort_dicts=False))
+    logger.info(f'registered tool {tool_name}')
     _TOOL_HOOKS[tool_name] = func
     _TOOL_DESCRIPTIONS[tool_name] = tool_def
 
@@ -114,5 +119,6 @@ def get_weather(
 
 
 if __name__ == "__main__":
-    print(dispatch_tool("get_weather", {"city_name": "beijing"}))
-    print(get_tools())
+    # print(dispatch_tool("get_weather", {"city_name": "beijing"}))
+    # print(get_tools())
+    pass

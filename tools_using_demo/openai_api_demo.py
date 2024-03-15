@@ -20,6 +20,9 @@ def run_conversation(query: str, stream=False, tools=None, max_retry=5):
     params = dict(model="chatglm3", messages=[{"role": "user", "content": query}], stream=stream)
     if tools:
         params["tools"] = tools
+    logger.info(f'{tools.keys()} {type(tools)}')
+    for k, v in tools.items():
+        logger.info(f'{k = }\n{v = }')
     response = client.chat.completions.create(**params)
 
     for _ in range(max_retry):
@@ -60,8 +63,10 @@ def run_conversation(query: str, stream=False, tools=None, max_retry=5):
 
                     function_call = chunk.choices[0].delta.function_call
                     logger.info(f"Function Call Response: {function_call.model_dump()}")
+                    logger.info(f'{type(function_call) = } ')
 
                     function_args = json.loads(function_call.arguments)
+                    logger.info(f'{function_call.name = }, {function_args = }')
                     tool_response = dispatch_tool(function_call.name, function_args)
                     logger.info(f"Tool Call Response: {tool_response}")
 

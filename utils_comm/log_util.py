@@ -14,6 +14,7 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from icecream import ic
 
@@ -25,11 +26,11 @@ FMT = "%(asctime)s %(filename)s:%(lineno)d: %(message)s"
 DATE_FORMAT = "%y-%m-%d %H:%M:%S"
 
 
-def get_logger(name=None, log_file=None, log_level=logging.INFO):
+def get_logger(name: str | None = None, log_file: str = "", log_level=logging.INFO):
     """if log_file is not None, save log into log_file"""
     _logger = logging.getLogger(name)
     logging.basicConfig(format=FMT, datefmt=DATE_FORMAT)
-    if log_file is not None:
+    if log_file:
         log_file_folder = os.path.split(log_file)[0]
         if log_file_folder:
             os.makedirs(log_file_folder, exist_ok=True)
