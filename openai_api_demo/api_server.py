@@ -239,7 +239,6 @@ async def create_chat_completion(request: ChatCompletionRequest):
         tools=request.tools,
     )
     logger.debug(f"==== request ====\n{gen_params}")
-    request.stream = False
     if request.stream:
         # Use the stream mode to read the first few characters, if it is not a function call, direct stram output
         predict_stream_generator = predict_stream(request.model, gen_params)
@@ -295,7 +294,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
     # Here is the handling of stream = False
     response = generate_chatglm3(model, tokenizer, gen_params)
-    # ic(response)
+    logger.info(f"{response['finish_reason'] = }")
     # Remove the first newline character
     if response["text"].startswith("\n"):
         response["text"] = response["text"][1:]
@@ -422,26 +421,28 @@ def predict_stream(model_id, gen_params):
     has_send_first_chunk = False
     for new_response in generate_stream_chatglm3(model, tokenizer, gen_params):
         decoded_unicode = new_response["text"]
-
         delta_text = decoded_unicode[len(output):]
         finish_reason = new_response["finish_reason"]
         logger.info(f"{decoded_unicode = } {delta_text = } {finish_reason = }")
         output = decoded_unicode
 
-        if is_function_call or finish_reason == "function_call":
-            is_function_call = True
-            continue
-        # When it is not a function call and the character length is> 7,
-        # try to judge whether it is a function call according to the special function prefix
-        # if not is_function_call and len(output) > 7:
-        else:
+        # if is_function_call or finish_reason == "function_call":
+        #     is_function_call = True
+        #     continue
+        # # When it is not a function call and the character length is> 7,
+        # # try to judge whether it is a function call according to the special function prefix
+        # # if not is_function_call and len(output) > 7:
+        # else:
+        if not is_function_call and len(output) > 7:
+
             # Determine whether a function is called
-            # is_function_call = contains_custom_function(output)
-            # if is_function_call:
-            #     continue
+            is_function_call = contains_custom_function(output)
+            logger.info(f'{is_function_call = }')
+            if is_function_call:
+                continue
 
             # Non-function call, direct stream output
-            # finish_reason = new_response["finish_reason"]
+            finish_reason = new_response["finish_reason"]
 
             # Send an empty string first to avoid truncation by subsequent next() operations.
             if not has_send_first_chunk:

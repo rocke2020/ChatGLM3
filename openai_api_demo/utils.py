@@ -84,6 +84,8 @@ def generate_stream_chatglm3(model: PreTrainedModel, tokenizer: PreTrainedTokeni
 
     total_len = 0
     verbose=1
+    logger.info(f'{input_echo_len = }')
+    # model.stream_generate output the accumulated output, that's total_ids!
     for total_ids in model.stream_generate(**inputs, eos_token_id=eos_token_id, **gen_kwargs):
         total_ids = total_ids.tolist()[0]
         total_len = len(total_ids)
@@ -140,7 +142,7 @@ def process_chatglm_messages(messages, tools=None):
 
     for m in _messages:
         role, content, func_call = m.role, m.content, m.function_call
-        logger.info(f'{role = } {content = } {func_call = }')
+        # logger.info(f'{role = } {content = } {func_call = }')
         if role == "function":
             messages.append(
                 {

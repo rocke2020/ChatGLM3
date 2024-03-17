@@ -20,11 +20,10 @@ def run_conversation(query: str, stream=False, tools=None, max_retry=5):
     params = dict(model="chatglm3", messages=[{"role": "user", "content": query}], stream=stream)
     if tools:
         params["tools"] = tools
-    # logger.info(f'{tools.keys()} {type(tools)}')
+    # logger.info(f'{type(tools)}')
     # for k, v in tools.items():
     #     logger.info(f'{k = }\n{v = }')
     response = client.chat.completions.create(**params)
-
     for _ in range(max_retry):
         if not stream:
             if response.choices[0].message.function_call:
@@ -52,16 +51,18 @@ def run_conversation(query: str, stream=False, tools=None, max_retry=5):
             output = ""
             for chunk in response:
                 content = chunk.choices[0].delta.content or ""
-                print(Fore.BLUE + content, end="", flush=True)
+                # print(Fore.BLUE + content, end="", flush=True)
                 output += content
-
+                logger.info(f'{output = }')
+                logger.info(f'{chunk.choices[0].finish_reason = }')
                 if chunk.choices[0].finish_reason == "stop":
                     return
 
                 elif chunk.choices[0].finish_reason == "function_call":
-                    print("\n")
-
+                    # print("\n")
+                    
                     function_call = chunk.choices[0].delta.function_call
+                    logger.info(f'{function_call.name = } {function_call.arguments = }')
                     function_args = json.loads(function_call.arguments)
                     tool_response = dispatch_tool(function_call.name, function_args)
                     logger.info(
