@@ -243,12 +243,13 @@ async def create_chat_completion(request: ChatCompletionRequest):
         # Use the stream mode to read the first few characters, if it is not a function call, direct stram output
         predict_stream_generator = predict_stream(request.model, gen_params)
         output = next(predict_stream_generator)
-        logger.info(f"{output = }")
+        # "get_weather\n ```python\ntool_call(city_name='Shanghai')\n```"
+        # logger.info(f"{output = }")
         if not contains_custom_function(output):
             return EventSourceResponse(predict_stream_generator, media_type="text/event-stream")
 
         # Obtain the result directly at one time and determine whether tools needs to be called.
-        logger.info(f"First result output：\n{output}")
+        # logger.info(f"First result output：\n{output}")
 
         function_call = None
         if output and request.tools:

@@ -18,22 +18,32 @@ class InvalidScoreLogitsProcessor(LogitsProcessor):
 
 
 def process_response(output: str, use_tool: bool = False) -> Union[str, dict]:
+    """  
+    response e.g.,
+        get_weather  # metadata
+        ```python
+        tool_call(city_name='Shanghai')
+        ```
+    """
     content = ""
     for response in output.split("<|assistant|>"):
-        logger.info(f'{response = }')
+        # logger.info(f'{response = }')
         metadata, content = response.split("\n", maxsplit=1)
         if not metadata.strip():
             content = content.strip()
             content = content.replace("[[训练时间]]", "2023年")
         else:
             if use_tool:
+                # content = "tool_call(city_name='Shanghai')"
                 content = "\n".join(content.split("\n")[1:-1])
-                logger.info(f'{content = }')
+                # logger.info(f'{content = }')
+
                 def tool_call(**kwargs):
                     return kwargs
-
+                
+                # parameters = {'city_name': 'Shanghai'}
                 parameters = eval(content)
-                logger.info(f'{parameters = }')
+                # logger.info(f'{parameters = }')
                 content = {
                     "name": metadata.strip(),
                     "arguments": json.dumps(parameters, ensure_ascii=False)
@@ -55,9 +65,9 @@ def generate_stream_chatglm3(model: PreTrainedModel, tokenizer: PreTrainedTokeni
     top_p = float(params.get("top_p", 1.0))
     max_new_tokens = int(params.get("max_tokens", 256))
     echo = params.get("echo", True)
-    logger.info(f'{messages = } {tools = }')
+    logger.info(f'\nmessages{json.dumps(messages, ensure_ascii=False, indent=4)}\n{tools = }')
     messages = process_chatglm_messages(messages, tools=tools)
-    logger.info(f'{messages = }')
+    logger.info(f'\nmessages: {json.dumps(messages, ensure_ascii=False, indent=4)}')
     query, role = messages[-1]["content"], messages[-1]["role"]
 
     inputs = tokenizer.build_chat_input(query, history=messages[:-1], role=role)
@@ -98,7 +108,7 @@ def generate_stream_chatglm3(model: PreTrainedModel, tokenizer: PreTrainedTokeni
         if response and response[-1] != "�":
             response, stop_found = apply_stopping_strings(response, ["<|observation|>"])
             if verbose:
-                logger.info(f'{response = } {stop_found = }')
+                # logger.info(f'{response = } {stop_found = }')
             yield {
                 "text": response,
                 "usage": {

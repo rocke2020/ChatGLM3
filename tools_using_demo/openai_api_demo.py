@@ -5,11 +5,12 @@ from colorama import Fore, init
 from loguru import logger
 from openai import OpenAI
 from tool_register import dispatch_tool, get_tools
+from pathlib import Path
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--key", type=str)
 args = parser.parse_args()
-
+logger.add(Path(__file__).with_suffix('.log'))
 init(autoreset=True)
 client = OpenAI(base_url="http://127.0.0.1:8000/v1", api_key=args.key)
 
