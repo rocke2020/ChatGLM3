@@ -5,7 +5,7 @@ import functools
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Annotated, Any, Optional, Union
-
+from loguru import logger
 import jieba
 import numpy as np
 import ruamel.yaml as yaml
@@ -241,7 +241,7 @@ class DataManager(object):
         orig_dataset = self._get_dataset(split)
         if orig_dataset is None:
             return
-
+        logger.info(f'{orig_dataset.column_names = }')
         if remove_orig_columns:
             remove_columns = orig_dataset.column_names
         else:
@@ -375,6 +375,7 @@ def load_tokenizer_and_model(
 ) -> tuple[PreTrainedTokenizer, nn.Module]:
     tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
     if peft_config is not None:
+        logger.info(f'{peft_config.peft_type.name = }')
         if peft_config.peft_type.name == "PREFIX_TUNING":
             config = AutoConfig.from_pretrained(model_dir, trust_remote_code=True)
             config.pre_seq_len = peft_config.num_virtual_tokens
