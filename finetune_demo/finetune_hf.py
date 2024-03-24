@@ -35,6 +35,10 @@ from transformers import DataCollatorForSeq2Seq as _DataCollatorForSeq2Seq
 
 from transformers import Seq2SeqTrainer as _Seq2SeqTrainer
 import os
+import sys
+from icecream import ic
+ic.configureOutput(includeContext=True, argToStringFunction=str)
+ic.lineWrapWidth = 120
 
 ModelType = Union[PreTrainedModel, PeftModelForCausalLM]
 TokenizerType = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
@@ -213,7 +217,7 @@ def _load_datasets(
     else:
         err_msg = f"Cannot load dataset in the '{data_format}' format."
         raise NotImplementedError(err_msg)
-
+    logger.info(f"{dataset_dct['train'][0] = }")
     return dataset_dct
 
 
@@ -270,7 +274,7 @@ def process_batch(
     batched_conv = batch['conversations']
     batched_input_ids = []
     batched_labels = []
-
+    # ic(len(batched_conv))  # default batch size 1000
     if batched_tools is None:
         batched_tools = [None] * len(batched_conv)
 
@@ -445,7 +449,8 @@ def main(
 
 ):
     ft_config = FinetuningConfig.from_file(config_file)
-    tokenizer, model = load_tokenizer_and_model(model_dir, peft_config=ft_config.peft_config)
+    # tokenizer, model = load_tokenizer_and_model(model_dir, peft_config=ft_config.peft_config)
+    tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
     data_manager = DataManager(data_dir, ft_config.data_config)
 
     train_dataset = data_manager.get_dataset(
@@ -483,7 +488,7 @@ def main(
     )
     if test_dataset is not None:
         print('test_dataset:', test_dataset)
-
+    sys.exit(0)
     # checks encoded dataset
     # _sanity_check(
     #     train_dataset[0]["input_ids"], train_dataset[0]["labels"], tokenizer
