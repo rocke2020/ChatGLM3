@@ -2,41 +2,36 @@
 
 import dataclasses as dc
 import functools
+import os
+import sys
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Annotated, Any, Optional, Union
-from loguru import logger
+
 import jieba
 import numpy as np
 import ruamel.yaml as yaml
 import torch
 import typer
 from datasets import Dataset, DatasetDict, NamedSplit, Split, load_dataset
+from icecream import ic
+from loguru import logger
 from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
-from peft import (
-    PeftConfig,
-    PeftModelForCausalLM,
-    get_peft_config,
-    get_peft_model
-)
+from peft import PeftConfig, PeftModelForCausalLM, get_peft_config, get_peft_model
 from rouge_chinese import Rouge
 from torch import nn
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+from transformers import DataCollatorForSeq2Seq as _DataCollatorForSeq2Seq
 from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
     EvalPrediction,
     GenerationConfig,
     PreTrainedModel,
     PreTrainedTokenizer,
     PreTrainedTokenizerFast,
-    Seq2SeqTrainingArguments, AutoConfig,
 )
-from transformers import DataCollatorForSeq2Seq as _DataCollatorForSeq2Seq
-
 from transformers import Seq2SeqTrainer as _Seq2SeqTrainer
-import os
-import sys
-from icecream import ic
+from transformers import Seq2SeqTrainingArguments
+
 ic.configureOutput(includeContext=True, argToStringFunction=str)
 ic.lineWrapWidth = 120
 
@@ -47,6 +42,10 @@ app = typer.Typer(pretty_exceptions_show_locals=False)
 
 class DataCollatorForSeq2Seq(_DataCollatorForSeq2Seq):
     def __call__(self, features, return_tensors=None):
+        """
+        Args:
+            features (_type_): list[dict[str, list[int]]]
+        """        
         output_ids = (
             [feature['output_ids'] for feature in features]
             if 'output_ids' in features[0].keys()
@@ -70,6 +69,8 @@ class DataCollatorForSeq2Seq(_DataCollatorForSeq2Seq):
                     feature['output_ids'] = np.concatenate(
                         [feature['output_ids'], remainder]
                     ).astype(np.int64)
+            # features list[dict[str, list[int]]]
+            # len(features): 16, len(features[0]): 2, len(features[0]['output_ids']): 108
         return super().__call__(features, return_tensors)
 
 
@@ -250,6 +251,7 @@ class DataManager(object):
             remove_columns = orig_dataset.column_names
         else:
             remove_columns = None
+        # Better to config remove_columns with the columns to be removed.
         return orig_dataset.map(
             process_fn,
             batched=batched,
@@ -352,6 +354,7 @@ def process_batch_eval(
                     message['role'], '', message['content']
                 )
                 if message['role'] == 'assistant':
+                    # new_input_ids[:1] is the first token of the assistant's response, that's the role token.
                     output_prompt, output_ids = (
                         new_input_ids[:1],
                         new_input_ids[1:],
@@ -449,8 +452,7 @@ def main(
 
 ):
     ft_config = FinetuningConfig.from_file(config_file)
-    # tokenizer, model = load_tokenizer_and_model(model_dir, peft_config=ft_config.peft_config)
-    tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
+    tokenizer, model = load_tokenizer_and_model(model_dir, peft_config=ft_config.peft_config)
     data_manager = DataManager(data_dir, ft_config.data_config)
 
     train_dataset = data_manager.get_dataset(
@@ -475,7 +477,7 @@ def main(
         batched=True,
     )
     if val_dataset is not None:
-        print('val_dataset:', val_dataset)
+        print('val_dataset:', val_dataset, f'\n{len(val_dataset) = }')
     test_dataset = data_manager.get_dataset(
         Split.TEST,
         functools.partial(
@@ -488,12 +490,9 @@ def main(
     )
     if test_dataset is not None:
         print('test_dataset:', test_dataset)
-    sys.exit(0)
-    # checks encoded dataset
-    # _sanity_check(
-    #     train_dataset[0]["input_ids"], train_dataset[0]["labels"], tokenizer
-    # )
 
+    # checks encoded dataset
+    # _sanity_check(train_dataset[0]["input_ids"], train_dataset[0]["labels"], tokenizer)
     # turn model to fp32
     _prepare_model_for_training(model, ft_config.training_args.use_cpu)
 
@@ -506,6 +505,8 @@ def main(
         tokenizer.get_command('<|observation|>'),
     ]
     model.gradient_checkpointing_enable()
+    # Enables the gradients for the input embeddings. This is useful for fine-tuning adapter weights while keeping the model weights fixed.
+    # https://github.com/huggingface/transformers/blob/main/src/transformers/modeling_utils.py
     model.enable_input_require_grads()
     trainer = Seq2SeqTrainer(
         model=model,
@@ -520,7 +521,7 @@ def main(
         tokenizer=tokenizer,
         compute_metrics=functools.partial(compute_metrics, tokenizer=tokenizer),
     )
-
+    # sys.exit(0)
     # Determine whether to continue training without breakpoints or if it is empty, then start training again directly
     if auto_resume_from_checkpoint.upper() == "" or auto_resume_from_checkpoint is None:
         trainer.train()

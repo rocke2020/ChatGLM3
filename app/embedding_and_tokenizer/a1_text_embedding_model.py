@@ -22,7 +22,7 @@ sentences_3 = [
 
 
 def test():
-    """the embeddings are the same with or without normalization for bge-m3.
+    """ 
     embeddings_1.shape: (batch-size, 1024), ndarray
     """
     model = SentenceTransformer(EMBEDDING_PATH, device="cuda")
