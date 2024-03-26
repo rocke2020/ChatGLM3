@@ -83,7 +83,10 @@ class Seq2SeqTrainer(_Seq2SeqTrainer):
             ignore_keys=None,
             **gen_kwargs,
     ) -> tuple[Optional[float], Optional[torch.Tensor], Optional[torch.Tensor]]:
-
+        # ic(self.label_names)  # ['labels']
+        # has_labels False
+        # has_labels = "labels" in inputs
+        # ic(inputs.keys()) # ['input_ids', 'output_ids', 'attention_mask', 'position_ids']
         if self.args.predict_with_generate:
             output_ids = inputs.pop('output_ids')
         input_ids = inputs['input_ids']
@@ -93,6 +96,7 @@ class Seq2SeqTrainer(_Seq2SeqTrainer):
         generated_tokens = generated_tokens[:, input_ids.size()[1]:]
         if self.args.predict_with_generate:
             labels = output_ids
+        # ic(loss) As has_labels is False, directly return None for loss.
         return loss, generated_tokens, labels
 
 
@@ -513,6 +517,8 @@ def main(
         args=ft_config.training_args,
         data_collator=DataCollatorForSeq2Seq(
             tokenizer=tokenizer,
+            # In the source of .../transformers/tokenization_utils_base.py, def pad(...),
+            # In this situations, the longest is the max_length in the batch.
             padding='longest',
             return_tensors='pt',
         ),

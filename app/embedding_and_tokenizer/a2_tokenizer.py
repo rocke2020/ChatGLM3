@@ -28,27 +28,26 @@ r = tokenizer(examples["s1"], examples["s2"])
 ic(r.keys())
 ic(type(r["input_ids"]), type(r["input_ids"][0]), type(r["input_ids"][0][0]))
 
+# "[gMASK]", "sop": 64790, 64792
 r0 = tokenizer.get_command("[gMASK]")
 r1 = tokenizer.get_command("sop")
-ic(r0)
-ic(r1)
-ic(tokenizer.get_command("<|user|>"))
+# ic(tokenizer.get_command("<|user|>"))  # "<|user|>"): 64795
 message = {
     "role": "user",
     "content": "类型#裤*版型#宽松*风格#性感*图案#线条*裤型#阔腿裤",
 }
+
+# [64795, 30910, 13, 30910, 33467, 31010, 56532, ...]
 tokens = tokenizer.build_single_message(message["role"], "", message["content"])
-ic(tokens)
+
 # not add special tokens
 # tokens: [30910, 33467, 31010, 56532, 30998, 55090, 54888, 31010, 40833, 30998, 32799, 31010, 40589, 30998, 37505, 31010, 37216, 30998, 56532, 54888, 31010, 56529, 56158, 56532]
 tokens = tokenizer.tokenizer.encode(message["content"])
-ic(tokens)
 # not add special tokens
 # [30910, 13]
 tokens = tokenizer.tokenizer.encode("\n")
-ic(tokens)
 
-# default, add 2 special tokens: [gMASK], sop
+# default, add 2 special tokens: [gMASK], sop, but without role tokens
 # prefix_tokens = [self.get_command("[gMASK]"), self.get_command("sop")]
 tokens = tokenizer.encode(message["content"])
 ic(tokens)
