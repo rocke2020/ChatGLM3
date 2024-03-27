@@ -38,6 +38,8 @@ ic.lineWrapWidth = 120
 ModelType = Union[PreTrainedModel, PeftModelForCausalLM]
 TokenizerType = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
 app = typer.Typer(pretty_exceptions_show_locals=False)
+gpu = os.environ['CUDA_VISIBLE_DEVICES']
+logger.info(f'{gpu = }')
 
 
 class DataCollatorForSeq2Seq(_DataCollatorForSeq2Seq):
@@ -498,7 +500,7 @@ def main(
     # checks encoded dataset
     # _sanity_check(train_dataset[0]["input_ids"], train_dataset[0]["labels"], tokenizer)
     # turn model to fp32
-    _prepare_model_for_training(model, ft_config.training_args.use_cpu)
+    # _prepare_model_for_training(model, ft_config.training_args.use_cpu)
 
     ft_config.training_args.generation_config.pad_token_id = (
         tokenizer.pad_token_id
@@ -529,6 +531,7 @@ def main(
     )
     # sys.exit(0)
     # Determine whether to continue training without breakpoints or if it is empty, then start training again directly
+    logger.info(f'{auto_resume_from_checkpoint = }')
     if auto_resume_from_checkpoint.upper() == "" or auto_resume_from_checkpoint is None:
         trainer.train()
     else:
