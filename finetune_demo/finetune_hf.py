@@ -14,7 +14,6 @@ import ruamel.yaml as yaml
 import torch
 import typer
 from datasets import Dataset, DatasetDict, NamedSplit, Split, load_dataset
-from icecream import ic
 from loguru import logger
 from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
 from peft import PeftConfig, PeftModelForCausalLM, get_peft_config, get_peft_model
@@ -32,14 +31,19 @@ from transformers import (
 from transformers import Seq2SeqTrainer as _Seq2SeqTrainer
 from transformers import Seq2SeqTrainingArguments
 
-ic.configureOutput(includeContext=True, argToStringFunction=str)
-ic.lineWrapWidth = 120
 
 ModelType = Union[PreTrainedModel, PeftModelForCausalLM]
 TokenizerType = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
 app = typer.Typer(pretty_exceptions_show_locals=False)
 gpu = os.environ['CUDA_VISIBLE_DEVICES']
-logger.info(f'{gpu = }')
+
+local_rank = None
+
+
+def rank0_log(*args):
+    if local_rank == 0:
+        for arg in args:
+            logger.info(arg)
 
 
 class DataCollatorForSeq2Seq(_DataCollatorForSeq2Seq):
@@ -111,7 +115,8 @@ def _sanity_check(
         output_ids: Sequence[int],
         tokenizer: PreTrainedTokenizer,
 ):
-    print('--> Sanity check')
+    # print('--> Sanity check')
+    rank0_log('--> Sanity check')
     for in_id, out_id in zip(input_ids, output_ids):
         if in_id == 0:
             continue
@@ -119,7 +124,8 @@ def _sanity_check(
             in_text = tokenizer.tokenizer.index_special_tokens[in_id]
         else:
             in_text = tokenizer.decode([in_id])
-        print(f'{repr(in_text):>20}: {in_id} -> {out_id}')
+        rank0_log(f'{repr(in_text):>20}: {in_id} -> {out_id}')
+        # print(f'{repr(in_text):>20}: {in_id} -> {out_id}')
 
 
 @functools.cache
@@ -224,7 +230,7 @@ def _load_datasets(
     else:
         err_msg = f"Cannot load dataset in the '{data_format}' format."
         raise NotImplementedError(err_msg)
-    logger.info(f"{dataset_dct['train'][0] = }")
+    rank0_log(f"{dataset_dct['train'][0] = }")
     return dataset_dct
 
 
@@ -252,7 +258,7 @@ class DataManager(object):
         orig_dataset = self._get_dataset(split)
         if orig_dataset is None:
             return
-        logger.info(f'{orig_dataset.column_names = }')
+        rank0_log(f'{orig_dataset.column_names = }')
         if remove_orig_columns:
             remove_columns = orig_dataset.column_names
         else:
@@ -267,9 +273,10 @@ class DataManager(object):
 
 
 def print_model_size(model: PreTrainedModel):
-    print("--> Model")
+    # print("--> Model")
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"\n--> model has {total_params / 1e6}M params\n")
+    rank0_log(f"\n--> model has {total_params / 1e6}M params\n")
+    # print(f"\n--> model has {total_params / 1e6}M params\n")
 
 
 def process_batch(
@@ -388,7 +395,7 @@ def load_tokenizer_and_model(
 ) -> tuple[PreTrainedTokenizer, nn.Module]:
     tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
     if peft_config is not None:
-        logger.info(f'{peft_config.peft_type.name = }')
+        rank0_log(f'{peft_config.peft_type.name = }')
         if peft_config.peft_type.name == "PREFIX_TUNING":
             config = AutoConfig.from_pretrained(model_dir, trust_remote_code=True)
             config.pre_seq_len = peft_config.num_virtual_tokens
@@ -457,6 +464,12 @@ def main(
         ),
 
 ):
+    global local_rank
+    local_rank = int(os.environ.get('LOCAL_RANK', -1))
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
+    gpu = os.environ['CUDA_VISIBLE_DEVICES']
+    rank0_log(f'{world_size = }, {local_rank = } {gpu = }')
+    
     ft_config = FinetuningConfig.from_file(config_file)
     tokenizer, model = load_tokenizer_and_model(model_dir, peft_config=ft_config.peft_config)
     data_manager = DataManager(data_dir, ft_config.data_config)
@@ -471,7 +484,7 @@ def main(
         ),
         batched=True,
     )
-    print('train_dataset:', train_dataset)
+    rank0_log(f'{train_dataset = }')
     val_dataset = data_manager.get_dataset(
         Split.VALIDATION,
         functools.partial(
@@ -483,7 +496,7 @@ def main(
         batched=True,
     )
     if val_dataset is not None:
-        print('val_dataset:', val_dataset, f'\n{len(val_dataset) = }')
+        rank0_log(f'{val_dataset = }\n {len(val_dataset) = }')
     test_dataset = data_manager.get_dataset(
         Split.TEST,
         functools.partial(
@@ -495,7 +508,7 @@ def main(
         batched=True,
     )
     if test_dataset is not None:
-        print('test_dataset:', test_dataset)
+        rank0_log(f'{test_dataset = }')
 
     # checks encoded dataset
     # _sanity_check(train_dataset[0]["input_ids"], train_dataset[0]["labels"], tokenizer)
@@ -531,7 +544,7 @@ def main(
     )
     # sys.exit(0)
     # Determine whether to continue training without breakpoints or if it is empty, then start training again directly
-    logger.info(f'{auto_resume_from_checkpoint = }')
+    rank0_log(f'{auto_resume_from_checkpoint = }')
     if auto_resume_from_checkpoint.upper() == "" or auto_resume_from_checkpoint is None:
         trainer.train()
     else:
@@ -548,7 +561,7 @@ def main(
                 model.gradient_checkpointing_enable()
                 model.enable_input_require_grads()
                 checkpoint_directory = os.path.join(output_dir, "checkpoint-" + str(checkpoint_sn))
-                print("resume checkpoint from  checkpoint-" + str(checkpoint_sn))
+                # print("resume checkpoint from  checkpoint-" + str(checkpoint_sn))
                 trainer.train(resume_from_checkpoint=checkpoint_directory)
             else:
                 trainer.train()
@@ -559,11 +572,12 @@ def main(
                     model.gradient_checkpointing_enable()
                     model.enable_input_require_grads()
                     checkpoint_directory = os.path.join(output_dir, "checkpoint-" + str(checkpoint_sn))
-                    print("resume checkpoint from  checkpoint-" + str(checkpoint_sn))
+                    # print("resume checkpoint from  checkpoint-" + str(checkpoint_sn))
                     trainer.train(resume_from_checkpoint=checkpoint_directory)
             else:
-                print(auto_resume_from_checkpoint,
-                      "The specified checkpoint sn(" + auto_resume_from_checkpoint + ") has not been saved. Please search for the correct chkeckpoint in the model output directory")
+                rank0_log(f'{auto_resume_from_checkpoint} The specified checkpoint sn(" + {auto_resume_from_checkpoint}" + ") has not been saved. Please search for the correct chkeckpoint in the model output directory")')
+                # print(auto_resume_from_checkpoint,
+                #       "The specified checkpoint sn(" + auto_resume_from_checkpoint + ") has not been saved. Please search for the correct chkeckpoint in the model output directory")
 
     # test stage
     if test_dataset is not None:
