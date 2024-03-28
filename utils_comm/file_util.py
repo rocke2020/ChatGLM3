@@ -14,15 +14,44 @@ import socket
 from decimal import Decimal
 from pathlib import Path
 from typing import List, Tuple
-
-import numpy
+import torch
+import numpy as np
 import pandas as pd
 import yaml
+from loguru import logger
 from pandas import DataFrame
 
-from utils_comm.log_util import log_df_basic_info, logger
-
 SEQUENCE = "Sequence"
+
+
+def log_df_basic_info(
+    df: DataFrame, log_func=None, comments="", full_info=False, partial_col_num=4
+):
+    """For large df, describe() use much more time, and so skip it for large df!"""
+    if log_func is None:
+        log_func = logger
+    if comments:
+        log_func.info(f"comments {comments}")
+    log_func.info(f"df.shape {df.shape}")
+    columns = df.columns.to_list()
+    if full_info:
+        log_func.info(f"df.columns {columns}")
+        log_func.info(f"df.head()\n{df.head()}")
+        log_func.info(f"df.tail()\n{df.tail()}")
+        log_func.info(f"df.describe()\n{df.describe()}")
+    else:
+        log_func.info(f"df.columns [:{partial_col_num}] {columns[:partial_col_num]}")
+        log_func.info(f"df.columns [-{partial_col_num}:] {columns[-partial_col_num:]}")
+        log_func.info(
+            f"df[columns[:{partial_col_num}]].head() {df[columns[:partial_col_num]].head()}"
+        )
+        log_func.info(
+            f"df[columns[-{partial_col_num}:]].tail() {df[columns[-partial_col_num:]].tail()}"
+        )
+        if len(df) <= 200_000:
+            log_func.info(
+                f"df[columns[:{partial_col_num}]].describe()\n{df[columns[:partial_col_num]].describe()}"
+            )
 
 
 class FileUtil:
@@ -203,12 +232,14 @@ class JSONEncoder(json.JSONEncoder):
             return list(o)
         if isinstance(o, bytes):
             return o.decode()
-        if isinstance(o, numpy.ndarray):
+        if isinstance(o, np.ndarray):
             return o.tolist()
-        if isinstance(o, numpy.floating): # type: ignore
+        if isinstance(o, np.floating): # type: ignore
             return float(o)
-        if isinstance(o, numpy.integer): # type: ignore
+        if isinstance(o, np.integer): # type: ignore
             return int(o)
+        if isinstance(o, torch.Tensor):
+            return o.tolist()
         return super().default(o)
 
 
@@ -388,3 +419,7 @@ def get_sorted_index(lst, reverse=False):
         i for i, x in sorted(enumerate(lst), key=lambda x: x[1], reverse=reverse)
     ]
     return sorted_index
+
+
+if __name__ == "__main__":
+    logger.info('end')
